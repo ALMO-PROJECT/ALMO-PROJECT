@@ -341,7 +341,7 @@ const ImportDevis = ({onImport,projets}) => {
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1000,
           messages:[{role:"user",content:[
             {type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
-            {type:"text",text:`Ce document est un devis ou budget signé avec un client maître d\'ouvrage. Extrait toutes les informations lot par lot. Réponds UNIQUEMENT en JSON valide sans backticks ni texte autour:\n{\n  \"client\":\"Nom complet du client\",\n  \"adresseClient\":\"Adresse complète\",\n  \"chantier\":\"Nom ou adresse du chantier\",\n  \"numeroDevis\":\"numero\",\n  \"dateDevis\":\"YYYY-MM-DD\",\n  \"lots\":[{\"nom\":\"LOT EN MAJUSCULES\",\"budgetHT\":0,\"tva\":0.1,\"budgetTTC\":0}],\n  \"totalHT\":0,\n  \"totalTTC\":0\n}\nSi pas de décomposition par lot, crée un lot unique avec le type de travaux en majuscules. TVA: 0.055=5.5pct, 0.1=10pct, 0.2=20pct.`
+                        {type:"text",text:"Ce document est un devis signe avec un client. Extrait les lots et budgets. JSON: {client,adresseClient,chantier,numeroDevis,dateDevis,lots:[{nom,budgetHT,tva,budgetTTC}],totalHT,totalTTC}. TVA 0.055/0.1/0.2."}
           ]}]})
       });
       const data=await resp.json();
@@ -350,44 +350,6 @@ const ImportDevis = ({onImport,projets}) => {
       setResult(JSON.parse(clean));
     } catch(e){setError("Erreur: "+e.message);}
     setLoading(false);
-  };
-
-  const confirmer = () => {
-    if(!result) return;
-    // Build lots from result.lots[] or fallback to single lot
-    const lotsData = result.lots && result.lots.length > 0 ? result.lots : [{
-      nom: result.lot || "TRAVAUX", budgetHT: result.montantHT || 0,
-      tva: result.tva || 0.1, budgetTTC: result.montantTTC || 0
-    }];
-    const lots = lotsData.map(l => ({
-      id: uid(),
-      nom: l.nom || "TRAVAUX",
-      tva: String(l.tva || 0.1),
-      marcheHT: "",           // marché entreprise = vide, à remplir via acte d\'engagement
-      budgetHT: l.budgetHT,   // budget client signé
-      budgetTTC: l.budgetTTC,
-      budgetTva: l.tva,
-      entreprise: "",
-      factures: [], avenants: []
-    }));
-    if(projetCible==="nouveau"){
-      const projet={
-        id:uid(),
-        nom:result.chantier||result.client||"Nouveau projet",
-        client:result.client||"",
-        adresseClient:result.adresseClient||"",
-        ville:"",
-        adresseChantier:result.chantier||result.adresseClient||"",
-        statut:"en_cours",
-        createdAt:today(),
-        lots,
-        budgetTotal:{totalHT:result.totalHT,totalTTC:result.totalTTC}
-      };
-      onImport(projet,null,result);
-    } else {
-      onImport(null,{projetId:projetCible,lots},result);
-    }
-    setResult(null);
   };
 
   return (
